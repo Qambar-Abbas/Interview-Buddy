@@ -6,11 +6,11 @@ InterviewBuddy is a desktop app for live system-audio transcription and optional
 
 | Platform | Download |
 | --- | --- |
-| Windows 10/11 (x64) | [Download installer](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.1.8_x64-setup.exe) |
-| macOS (Intel) | [Download DMG](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.1.8_x64.dmg) |
-| macOS (Apple Silicon) | [Download DMG](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.1.8_aarch64.dmg) |
+| Windows 10/11 (x64) | [Download installer](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.1.9_x64-setup.exe) |
+| macOS (Intel) | [Download DMG](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.1.9_x64.dmg) |
+| macOS (Apple Silicon) | [Download DMG](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.1.9_aarch64.dmg) |
 
-These links will work after the `v0.1.8` release is published. For earlier versions, visit [All Releases](https://github.com/Umar-fr/Interview-Buddy/releases).
+These links point to the latest release. For earlier versions, visit [All Releases](https://github.com/Umar-fr/Interview-Buddy/releases).
 
 ### Installation notes
 
