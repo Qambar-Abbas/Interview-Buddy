@@ -24,8 +24,9 @@ These links will work after the `v0.1.8` release is published. For earlier versi
 
 1. On first launch, select your Whisper model and transcription language. Later launches use the saved choices and start audio capture automatically.
 2. Play audio through your computer’s default output device. Transcriptions appear in the Live Transcript panel with capture times and processing delay.
-3. To enable Gemini answers, open **Gemini AI** and click the Google AI Studio link to open its key page in your browser. Detect, test, and save a model; compatible Gemini models are ordered from most capable to fastest. Auto-Answer needs a connected Gemini key/model and responds to detected questions.
-4. Optionally add resume/background details in settings to personalize responses.
+3. Use **+ Add** on transcript snippets to assemble a question in the Gemini field without submitting; click **Ask AI** to ask about one snippet immediately.
+4. To enable Gemini answers, open **Gemini AI** and click the Google AI Studio link to open its key page in your browser. Detect, test, and save a model; compatible Gemini models are ordered from most capable to fastest. Auto-Answer needs a connected Gemini key/model and responds to detected questions.
+5. Coding questions include brute-force and optimized solutions, reasoning, and time/space complexity. Optionally add resume/background details in settings to personalize responses.
 
 | Shortcut | Action |
 | --- | --- |

@@ -866,7 +866,11 @@ async function streamGeminiAnswer(
   const streamUrl = `https://generativelanguage.googleapis.com/v1beta/${cleanModel}:streamGenerateContent?alt=sse&key=${geminiApiKey}`;
 
  const promptContext = userResume ? `\nMy background, for factual context:\n${userResume}\n` : "";
- const prompt = `Answer the interviewer's question in concise, natural first-person speech. Start with the answer; do not add an introduction or mention AI. Be accurate, conversational, and complete without inventing personal experience.${promptContext}
+ const codingQuestion = isCodingQuestion(questionText);
+ const responseInstructions = codingQuestion
+   ? `This is a coding or algorithm question. Provide an interview-ready answer with these sections in order: brute-force approach and reasoning; brute-force code in a fenced code block; brute-force time and space complexity; optimized approach and reasoning; optimized code in a fenced code block; optimized time and space complexity. Use the requested or most suitable programming language, explain assumptions, and do not omit either solution.`
+   : "Answer the interviewer's question in concise, natural first-person speech. Start with the answer; do not add an introduction or mention AI. Be accurate, conversational, and complete without inventing personal experience.";
+ const prompt = `${responseInstructions}${promptContext}
 Question:
 """
 ${questionText}
@@ -881,7 +885,7 @@ ${contextHistory}
  const payload = {
    contents: [{ parts: [{ text: prompt }] }],
    generationConfig: {
-     maxOutputTokens: 512,
+     maxOutputTokens: codingQuestion ? 4096 : 512,
      temperature: 0.3,
     },
   };
@@ -969,12 +973,21 @@ async function requestGeminiAnswerFallback(cleanModel: string, payload: any): Pr
 
 
 function formatAiAnswerHtml(raw: string): string {
+  const codeBlocks: string[] = [];
+  let html = raw.replace(/```([\w+#.-]*)[ \t]*\r?\n([\s\S]*?)```/g, (_match, language: string, code: string) => {
+    const index = codeBlocks.length;
+    const languageClass = language ? ` class="language-${escapeHtml(language)}"` : "";
+    codeBlocks.push(`<pre style="margin:8px 0; padding:12px; background:#1e1e1e; border-radius:6px; overflow-x:auto;"><code${languageClass}>${escapeHtml(code.trimEnd())}</code></pre>`);
+    return `\u0000CODEBLOCK${index}\u0000`;
+  });
+  html = escapeHtml(html);
   // Convert markdown code ticks `code`
-  let html = raw.replace(/`([^`]+)`/g, "<code style=\"background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px; font-family:monospace; font-size:12px;\">$1</code>");
+  html = html.replace(/`([^`]+)`/g, "<code style=\"background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px; font-family:monospace; font-size:12px;\">$1</code>");
   // Convert markdown bold **text**
   html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   // Convert markdown italics *text*
   html = html.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+  html = html.replace(/^#{1,3}\s+(.+)$/gm, "<strong>$1</strong>");
   // Convert markdown bullet points at line starts
   html = html.replace(/^[•\-\*]\s+(.+)$/gm, "<div style=\"padding-left:14px; position:relative; margin:3px 0;\"><span style=\"position:absolute; left:2px; color:#c084fc;\">•</span>$1</div>");
   // Convert numbered lists at line starts (e.g. "1. ")
@@ -982,7 +995,34 @@ function formatAiAnswerHtml(raw: string): string {
   // Spacing for paragraphs
   html = html.replace(/\n{2,}/g, "<div style=\"height:8px;\"></div>");
   html = html.replace(/\n/g, "<br/>");
-  return html;
+  return html.replace(/\u0000CODEBLOCK(\d+)\u0000/g, (_placeholder, index: string) => codeBlocks[Number(index)] || "");
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character];
+  });
+}
+
+function isCodingQuestion(text: string): boolean {
+  return /\b(?:code|coding|program(?:ming)?|algorithm|data structure|leetcode|implement|write a function|write code|time complexity|space complexity|big[- ]?o|array|string|linked list|binary tree|graph|dynamic programming|hash ?map|stack|queue|sorting|searching|recursion|memoization|binary search|bfs|dfs|heap|trie|two sum|valid parentheses|merge intervals|shortest path|knapsack|subarray|substring|palindrome|anagram)\b/i.test(text);
+}
+
+function extractCodeBlocks(text: string): string[] {
+  const blocks: string[] = [];
+  const pattern = /```[\w+#.-]*[ \t]*\r?\n([\s\S]*?)```/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    blocks.push(match[1].trim());
+  }
+  return blocks;
 }
 
 // ==========================================
@@ -1280,14 +1320,36 @@ listen<TranscriptSegmentPayload>("transcription-event", (event) => {
   const askAiBtn = document.createElement("button");
   askAiBtn.className = "btn-ask-entry";
   askAiBtn.innerHTML = `✦ Ask AI`;
+  askAiBtn.setAttribute("aria-label", "Ask Gemini about this transcript snippet");
   askAiBtn.title = "Ask Gemini to answer or explain this snippet";
   askAiBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     triggerAiQuestionAnswer(cleanText, true);
   });
 
+  const addToQuestionBtn = document.createElement("button");
+  addToQuestionBtn.className = "btn-ask-entry btn-add-entry";
+  addToQuestionBtn.textContent = "+ Add";
+  addToQuestionBtn.setAttribute("aria-label", "Add this transcript snippet to the question field");
+  addToQuestionBtn.title = "Append this snippet to the question field without submitting";
+  addToQuestionBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!manualAiQuery) return;
+    const currentText = manualAiQuery.value;
+    const needsSpace = currentText.length > 0
+      && !/\s$/.test(currentText)
+      && !/^[,.;:!?)}\]]/.test(cleanText);
+    manualAiQuery.value = `${currentText}${needsSpace ? " " : ""}${cleanText}`;
+    manualAiQuery.focus();
+    manualAiQuery.setSelectionRange(manualAiQuery.value.length, manualAiQuery.value.length);
+  });
+
   header.appendChild(timeEl);
-  header.appendChild(askAiBtn);
+  const actions = document.createElement("div");
+  actions.className = "entry-actions";
+  actions.appendChild(addToQuestionBtn);
+  actions.appendChild(askAiBtn);
+  header.appendChild(actions);
 
   const textEl = document.createElement("div");
   textEl.className = "entry-text";
@@ -1550,6 +1612,7 @@ solveBtn?.addEventListener("click", async () => {
       body: JSON.stringify({
         contents: [{ parts }],
         generationConfig: {
+          maxOutputTokens: 4096,
           temperature: 0.1,
         },
       }),
@@ -1567,10 +1630,9 @@ solveBtn?.addEventListener("click", async () => {
       return;
     }
 
-    // Extract code block and explanation
-    const match = text.match(/```[\w+]*\n([\s\S]*?)```/);
-    const code = match ? match[1].trim() : text.trim();
-    const explanation = text.replace(/```[\w+]*\n[\s\S]*?```/, "").trim();
+    // Keep the optimized code available for a one-click copy action.
+    const codeBlocks = extractCodeBlocks(text);
+    const optimizedCode = codeBlocks[1] || codeBlocks[0] || "";
 
     if (aiAnswersBox) {
       if (aiPlaceholder && aiPlaceholder.parentElement) {
@@ -1592,26 +1654,19 @@ solveBtn?.addEventListener("click", async () => {
       
       const cardAnswer = document.createElement("div");
       cardAnswer.className = "ai-answer-body markdown-body";
-      cardAnswer.innerHTML = `<pre style="margin:0; padding:12px; background:#1e1e1e; border-radius:6px; overflow-x:auto;"><code style="font-family:monospace; color:#d4d4d4;">${code.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre>`;
+      cardAnswer.innerHTML = formatAiAnswerHtml(text);
       
-      const copyBtn = document.createElement("button");
-      copyBtn.className = "btn-text-action";
-      copyBtn.style.marginTop = "8px";
-      copyBtn.textContent = "Copy Solution";
-      copyBtn.onclick = async () => {
-        await navigator.clipboard.writeText(code);
-        copyBtn.textContent = "Copied!";
-        setTimeout(() => copyBtn.textContent = "Copy Solution", 1500);
-      };
-      cardAnswer.appendChild(copyBtn);
-      
-      if (explanation) {
-        const explDiv = document.createElement("div");
-        explDiv.style.marginTop = "10px";
-        explDiv.style.fontSize = "12px";
-        explDiv.style.color = "rgba(255,255,255,0.85)";
-        explDiv.textContent = explanation;
-        cardAnswer.appendChild(explDiv);
+      if (optimizedCode) {
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "btn-text-action";
+        copyBtn.style.marginTop = "8px";
+        copyBtn.textContent = "Copy Optimized Code";
+        copyBtn.onclick = async () => {
+          await navigator.clipboard.writeText(optimizedCode);
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => copyBtn.textContent = "Copy Optimized Code", 1500);
+        };
+        cardAnswer.appendChild(copyBtn);
       }
       
       card.appendChild(cardHeader);

@@ -458,7 +458,8 @@ main {
   position: relative;
 }
 
-.transcript-entry:hover .btn-ask-entry {
+.transcript-entry:hover .btn-ask-entry,
+.transcript-entry:focus-within .btn-ask-entry {
   opacity: 1;
 }
 
@@ -466,6 +467,14 @@ main {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+}
+
+.entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .entry-time {
@@ -489,6 +498,22 @@ main {
 .btn-ask-entry:hover {
   background: rgba(139, 92, 246, 0.4);
   color: #ffffff;
+}
+
+.btn-add-entry {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #6ee7b7;
+}
+
+.btn-add-entry:hover {
+  background: rgba(16, 185, 129, 0.35);
+}
+
+@media (hover: none) {
+  .btn-ask-entry {
+    opacity: 1;
+  }
 }
 
 .entry-text {

@@ -6,9 +6,9 @@ ${problem}
 """
 
 Instructions:
-1. Return ONLY the code in a single markdown fenced code block (e.g. \`\`\`${lang.toLowerCase()}\n...\n\`\`\`).
-2. Provide idiomatic and correct code.
-3. Use standard function or class signatures if the problem gives one.
-4. Handle edge cases.
-5. Provide NO extra prose, NO explanations, NO intro/outro text. Just the code.
-6. If the input is clearly not a coding problem, return exactly the string: "NOT_A_CODING_PROBLEM" (without quotes) inside the code block or as plain text.`;
+1. Provide both a brute-force solution and an optimized solution, in that order.
+2. For each solution, explain the approach and reasoning, then give idiomatic, correct ${lang} code in its own fenced code block, followed by time and space complexity with brief justification.
+3. Use standard function or class signatures if the problem gives one, state assumptions, and handle edge cases.
+4. If the brute-force and optimized approaches are necessarily the same, say so and provide the solution and complexities in both sections.
+5. Use these section headings: "Brute-force approach", "Brute-force complexity", "Optimized approach", and "Optimized complexity".
+6. If the input is clearly not a coding problem, return exactly the string: "NOT_A_CODING_PROBLEM" (without quotes), as plain text.`;
