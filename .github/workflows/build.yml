@@ -43,11 +43,32 @@ jobs:
 
       - name: Install Vulkan SDK
         run: |
-          winget install --id KhronosGroup.VulkanSDK --exact --silent --accept-source-agreements --accept-package-agreements
-          $sdk = Get-ChildItem C:\VulkanSDK -Directory | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
-          if (-not $sdk) { throw "Vulkan SDK installation directory was not found." }
-          "VULKAN_SDK=$($sdk.FullName)" >> $env:GITHUB_ENV
-          "$($sdk.FullName)\Bin" >> $env:GITHUB_PATH
+          $version = "1.4.363.0"
+          $sdk = "C:\VulkanSDK\$version"
+          $installer = Join-Path $env:RUNNER_TEMP "vulkansdk-windows-X64-$version.exe"
+          $url = "https://vulkan.lunarg.com/sdk/download/$version/windows/vulkansdk-windows-X64-$version.exe"
+          $expectedSha256 = "94a82d378f7a5e3e54c9db7d2fb7016af136e14ac0a18dbf0f2f67a36352d141"
+
+          Invoke-WebRequest -Uri $url -OutFile $installer
+          $actualSha256 = (Get-FileHash -Path $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualSha256 -ne $expectedSha256) {
+            throw "Vulkan SDK installer checksum mismatch."
+          }
+
+          $process = Start-Process -FilePath $installer -ArgumentList @(
+            "--root", $sdk, "--accept-licenses", "--default-answer", "--confirm-command", "install"
+          ) -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Vulkan SDK installer failed with exit code $($process.ExitCode)."
+          }
+          if (-not (Test-Path "$sdk\Include\vulkan\vulkan.h") -or
+              -not (Test-Path "$sdk\Lib\vulkan-1.lib") -or
+              -not (Test-Path "$sdk\Bin\glslc.exe")) {
+            throw "Vulkan SDK installation is missing required headers, libraries, or shader compiler."
+          }
+
+          "VULKAN_SDK=$sdk" >> $env:GITHUB_ENV
+          "$sdk\Bin" >> $env:GITHUB_PATH
 
       - name: Install frontend dependencies
         run: npm ci
