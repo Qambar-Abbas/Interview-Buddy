@@ -24,6 +24,16 @@
         </button>
         <button id="downloads-btn" class="tool-btn downloads-btn">Downloads</button>
         <button id="diagnostics-btn" class="tool-btn">Logs</button>
+        <div id="hotkeys-control" class="hotkeys-control">
+          <button id="hotkeys-button" class="hotkeys-button" type="button" aria-label="Show keyboard shortcuts" aria-describedby="hotkeys-popover">Keys</button>
+          <div id="hotkeys-popover" class="hotkeys-popover" role="tooltip">
+            <div class="hotkeys-popover-title">Window shortcuts</div>
+            <div id="hotkeys-shortcut-list"></div>
+            <div class="hotkeys-popover-row"><span>Open coding mode</span><kbd>Ctrl/⌘ + Shift + C</kbd></div>
+            <div class="hotkeys-popover-row"><span>Hide / show app</span><kbd>Ctrl/⌘ + Shift + H</kbd></div>
+            <div class="hotkeys-popover-row"><span>Drag window</span><kbd>Hold and drag background</kbd></div>
+          </div>
+        </div>
       </div>
 
       <div class="window-controls">
@@ -164,9 +174,13 @@
             <option value="tiny">Tiny multilingual (~75 MB) - Fastest (recommended for Windows)</option>
             <option value="base">Base multilingual (~150 MB) - Balanced accuracy and speed</option>
             <option value="small">Small multilingual (~500 MB) - Higher accuracy, slower</option>
+            <option value="medium">Medium multilingual (~1.5 GB) - Higher accuracy, slower</option>
+            <option value="large-v3-turbo">Large v3 Turbo (~1.6 GB) - High accuracy, GPU recommended</option>
+            <option value="large-v3">Large v3 (~3.1 GB) - Highest accuracy, GPU strongly recommended</option>
+            <option value="custom">Choose local GGML model file...</option>
           </select>
           <span class="form-hint">
-            Multilingual models support English, Hindi, and mixed Hinglish. Tiny is recommended for faster live captions on Windows; larger models may take much longer on CPU. For English-only audio, selecting English avoids repeated language detection; use Auto-detect for Hinglish. Model and language changes download/load in the background without stopping audio capture.
+            Multilingual models support English, Hindi, and mixed Hinglish. Tiny is recommended for faster live captions; Medium and larger models require substantial storage and work best with a GPU. Choose a local whisper.cpp GGML .bin file to use a custom model. Model and language changes apply in the background without stopping audio capture.
           </span>
         </div>
 
@@ -228,6 +242,10 @@
             <option value="tiny" selected>Tiny multilingual (~75 MB) — fastest, recommended for Windows</option>
             <option value="base">Base multilingual (~150 MB) — balanced accuracy and speed</option>
             <option value="small">Small multilingual (~500 MB) — higher accuracy, slower</option>
+            <option value="medium">Medium multilingual (~1.5 GB) — higher accuracy, slower</option>
+            <option value="large-v3-turbo">Large v3 Turbo (~1.6 GB) — high accuracy, GPU recommended</option>
+            <option value="large-v3">Large v3 (~3.1 GB) — highest accuracy, GPU strongly recommended</option>
+            <option value="custom">Choose local GGML model file...</option>
           </select>
         </div>
         <div class="form-group">
@@ -238,7 +256,7 @@
             <option value="hi">Hindi</option>
           </select>
         </div>
-        <p class="form-hint">The selected model downloads once on first use. Tiny is recommended for faster live captions on Windows. Audio transcription runs locally; audio is not sent to Gemini unless you enable AI features.</p>
+        <p class="form-hint">Built-in models download on first use. Medium and larger models need substantial storage and work best with a GPU. You can also choose a local whisper.cpp GGML .bin file. Audio transcription runs locally; audio is not sent to Gemini unless you enable AI features.</p>
         <div id="whisper-setup-status" class="modal-status-msg hidden"></div>
       </div>
       <div class="modal-footer">
@@ -365,6 +383,28 @@
         <button id="solve-btn" class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669);">
           <span id="solve-btn-text">Solve</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-update-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon">↑</div>
+          <div>
+            <h2 class="modal-title">InterviewBuddy update available</h2>
+            <p id="app-update-version" class="modal-subtitle"></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p id="app-update-notes" class="form-hint"></p>
+        <p class="form-hint">Open the official release page to download and install the update. You do not need to uninstall first.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="app-update-later" class="btn-text-action">Later</button>
+        <button id="app-update-open" class="btn-primary">View update</button>
       </div>
     </div>
   </div>

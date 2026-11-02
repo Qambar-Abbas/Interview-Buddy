@@ -4,6 +4,12 @@
   box-sizing: border-box;
 }
 
+*,
+*::before,
+*::after {
+  cursor: default !important;
+}
+
 html,
 body {
   margin: 0;
@@ -57,7 +63,6 @@ button, input, select, textarea, .modal-overlay, .content-split, .audio-monitor 
 
   padding: 0 10px 0 14px;
   user-select: none;
-  cursor: move;
 
   background: rgba(255, 255, 255, 0.04);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -180,6 +185,72 @@ button, input, select, textarea, .modal-overlay, .content-split, .audio-monitor 
   pointer-events: auto;
   position: relative;
   z-index: 100;
+}
+
+.hotkeys-control {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+.hotkeys-button {
+  min-width: 34px;
+  height: 24px;
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.78);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
+  -webkit-app-region: no-drag;
+}
+
+.hotkeys-popover {
+  position: absolute;
+  z-index: 200;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 248px;
+  padding: 10px 12px;
+  border: 1px solid rgba(168, 85, 247, 0.36);
+  border-radius: 8px;
+  background: rgba(20, 20, 28, 0.98);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 10px;
+  line-height: 1.6;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.hotkeys-control:hover .hotkeys-popover,
+.hotkeys-control:focus-within .hotkeys-popover,
+.hotkeys-control.open .hotkeys-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.hotkeys-popover-title {
+  margin-bottom: 5px;
+  color: #c084fc;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hotkeys-popover-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hotkeys-popover kbd {
+  color: #c4b5fd;
+  font: inherit;
+  white-space: nowrap;
 }
 
 .window-controls button {
@@ -484,7 +555,7 @@ main {
 }
 
 .btn-ask-entry {
-  opacity: 0;
+  opacity: 1;
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 4px;

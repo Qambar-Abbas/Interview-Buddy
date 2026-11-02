@@ -94,6 +94,59 @@ fn stop_capture_after_model_error(app: &AppHandle, is_running: &AtomicBool, mess
     );
 }
 
+fn place_window_on_monitor(window: &WebviewWindow, digit: u8) -> Result<(), String> {
+    let monitor = window
+        .current_monitor()
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "Could not determine which monitor the app is on.".to_string())?;
+    let monitor_position = monitor.position();
+    let monitor_size = monitor.size();
+    let window_size = window.outer_size().map_err(|error| error.to_string())?;
+    let available_x = (i64::from(monitor_size.width) - i64::from(window_size.width)).max(0);
+    let available_y = (i64::from(monitor_size.height) - i64::from(window_size.height)).max(0);
+    let column = i64::from((digit - 1) % 3);
+    let row = i64::from(2 - (digit - 1) / 3);
+    let offset_x = match column {
+        0 => 0,
+        1 => available_x / 2,
+        _ => available_x,
+    };
+    let offset_y = match row {
+        0 => 0,
+        1 => available_y / 2,
+        _ => available_y,
+    };
+    let x = i64::from(monitor_position.x) + offset_x;
+    let y = i64::from(monitor_position.y) + offset_y;
+    let x = i32::try_from(x).map_err(|error| error.to_string())?;
+    let y = i32::try_from(y).map_err(|error| error.to_string())?;
+
+    window
+        .set_position(tauri::PhysicalPosition::new(x, y))
+        .map_err(|error| error.to_string())
+}
+
+fn placement_shortcut_digit(shortcut: &Shortcut) -> Option<u8> {
+    let modifiers = if cfg!(target_os = "macos") {
+        Modifiers::SUPER | Modifiers::ALT
+    } else {
+        Modifiers::CONTROL | Modifiers::ALT
+    };
+    [
+        (1, Code::Digit1),
+        (2, Code::Digit2),
+        (3, Code::Digit3),
+        (4, Code::Digit4),
+        (5, Code::Digit5),
+        (6, Code::Digit6),
+        (7, Code::Digit7),
+        (8, Code::Digit8),
+        (9, Code::Digit9),
+    ]
+    .into_iter()
+    .find_map(|(digit, code)| shortcut.matches(modifiers, code).then_some(digit))
+}
+
 struct AudioWorkerPanicGuard {
     app: AppHandle,
     is_running: Arc<AtomicBool>,
@@ -214,11 +267,17 @@ fn start_system_audio_capture(
     model_name: Option<String>,
     language: Option<String>,
 ) -> Result<String, String> {
+    let requested_model = model_name.as_deref().unwrap_or("tiny");
+    let display_model = if requested_model.starts_with("custom:") {
+        "custom model"
+    } else {
+        requested_model
+    };
     diagnostics::record(
         "INFO",
         format!(
             "Audio capture requested; model={}, language={}",
-            model_name.as_deref().unwrap_or("tiny"),
+            display_model,
             language.as_deref().unwrap_or("auto")
         ),
     );
@@ -619,8 +678,17 @@ fn change_whisper_model(
     model_name: String,
     language: String,
 ) -> Result<String, String> {
-    if !matches!(model_name.as_str(), "tiny" | "base" | "small") {
+    let is_custom_model = model_name.starts_with("custom:");
+    if !is_custom_model
+        && !matches!(
+            model_name.as_str(),
+            "tiny" | "base" | "small" | "medium" | "large-v3" | "large-v3-turbo"
+        )
+    {
         return Err(format!("Unsupported Whisper model: {model_name}"));
+    }
+    if is_custom_model && model_name.trim_start_matches("custom:").is_empty() {
+        return Err("A local Whisper model file must be selected.".to_string());
     }
     if !matches!(language.as_str(), "auto" | "en" | "hi") {
         return Err(format!("Unsupported transcription language: {language}"));
@@ -640,15 +708,22 @@ fn change_whisper_model(
     let model_load_lock = state.model_load_lock.clone();
     let app_handle = app.clone();
     let selected_model = model_name.clone();
-
+    let diagnostic_model = if is_custom_model {
+        "custom model"
+    } else {
+        model_name.as_str()
+    };
+    let display_model = diagnostic_model.to_string();
     diagnostics::record(
         "INFO",
-        format!("Live Whisper model change requested; model={model_name}; language={language}"),
+        format!(
+            "Live Whisper model change requested; model={diagnostic_model}; language={language}"
+        ),
     );
     emit_model_status(
         &app,
         "downloading",
-        format!("Preparing Whisper {model_name} model while audio capture continues..."),
+        format!("Preparing Whisper {diagnostic_model} while audio capture continues..."),
         None,
         None,
     );
@@ -677,13 +752,13 @@ fn change_whisper_model(
                 if current_generation.load(Ordering::SeqCst) == generation {
                     diagnostics::record(
                         "ERROR",
-                        format!("Live Whisper model download failed: {error}"),
+                        format!("Live Whisper model preparation failed: {error}"),
                     );
                     emit_model_status(
                         &app_handle,
                         "error",
                         format!(
-                            "Could not prepare Whisper {selected_model}; the current model remains active. {error}"
+                            "Could not prepare Whisper {display_model}; the current model remains active. {error}"
                         ),
                         None,
                         None,
@@ -699,7 +774,7 @@ fn change_whisper_model(
         emit_model_status(
             &app_handle,
             "loading",
-            format!("Loading Whisper {selected_model}; audio capture continues..."),
+            format!("Loading Whisper {display_model}; audio capture continues..."),
             None,
             None,
         );
@@ -721,7 +796,7 @@ fn change_whisper_model(
                         &app_handle,
                         "error",
                         format!(
-                            "Could not load Whisper {selected_model}; the current model remains active. {error}"
+                            "Could not load Whisper {display_model}; the current model remains active. {error}"
                         ),
                         None,
                         None,
@@ -736,7 +811,7 @@ fn change_whisper_model(
         if switch_tx
             .send(LoadedWhisperModel {
                 generation,
-                model_name: selected_model.clone(),
+                model_name: display_model.clone(),
                 engine,
             })
             .is_err()
@@ -753,19 +828,19 @@ fn change_whisper_model(
         } else {
             diagnostics::record(
                 "INFO",
-                format!("Whisper {selected_model} loaded; waiting for the current inference to finish"),
+                format!("Whisper {display_model} loaded; waiting for the current inference to finish"),
             );
             emit_model_status(
                 &app_handle,
                 "loading",
-                format!("Whisper {selected_model} is ready and will activate after current transcription."),
+                format!("Whisper {display_model} is ready and will activate after current transcription."),
                 None,
                 None,
             );
         }
     });
 
-    Ok(format!("Preparing Whisper {model_name} in the background"))
+    Ok(format!("Preparing Whisper {diagnostic_model} in the background"))
 }
 
 #[tauri::command]
@@ -906,6 +981,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -931,6 +1007,15 @@ pub fn run() {
                                 let _ = win.show();
                                 let _ = win.set_focus();
                                 let _ = app.emit("open-coding-modal", ());
+                            }
+                        } else if let Some(digit) = placement_shortcut_digit(shortcut) {
+                            if let Some(win) = app.get_webview_window("main") {
+                                if let Err(error) = place_window_on_monitor(&win, digit) {
+                                    diagnostics::record(
+                                        "ERROR",
+                                        format!("Could not position app window: {error}"),
+                                    );
+                                }
                             }
                         }
                     }
@@ -970,6 +1055,30 @@ pub fn run() {
 
             for s in shortcuts {
                 let _ = app.handle().global_shortcut().register(s);
+            }
+            let position_modifiers = if cfg!(target_os = "macos") {
+                Modifiers::SUPER | Modifiers::ALT
+            } else {
+                Modifiers::CONTROL | Modifiers::ALT
+            };
+            for code in [
+                Code::Digit1,
+                Code::Digit2,
+                Code::Digit3,
+                Code::Digit4,
+                Code::Digit5,
+                Code::Digit6,
+                Code::Digit7,
+                Code::Digit8,
+                Code::Digit9,
+            ] {
+                let shortcut = Shortcut::new(Some(position_modifiers), code);
+                if let Err(error) = app.handle().global_shortcut().register(shortcut) {
+                    diagnostics::record(
+                        "WARN",
+                        format!("Could not register window positioning shortcut: {error}"),
+                    );
+                }
             }
 
             Ok(())

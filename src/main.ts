@@ -2,9 +2,15 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
+import packageJson from "../package.json";
 import { getCodingPrompt } from "./prompts/coding";
 
 const appWindow = getCurrentWindow();
+const APP_VERSION = packageJson.version;
+const RELEASES_API_URL = "https://api.github.com/repos/Umar-fr/Interview-Buddy/releases/latest";
+const RELEASES_PAGE_URL = "https://github.com/Umar-fr/Interview-Buddy/releases/latest";
+const UPDATE_CHECKED_AT_KEY = "update_checked_at";
 
 // ==========================================
 // Window Controls
@@ -58,6 +64,62 @@ const modelDownloadProgress = document.getElementById("model-download-progress")
 const modelDownloadProgressBar = document.getElementById("model-download-progress-bar");
 const aiBadgeBtn = document.getElementById("ai-settings-btn");
 const aiBadgeLabel = document.getElementById("ai-badge-label");
+const hotkeysControl = document.getElementById("hotkeys-control");
+const hotkeysButton = document.getElementById("hotkeys-button");
+const hotkeysShortcutList = document.getElementById("hotkeys-shortcut-list");
+const appUpdateModal = document.getElementById("app-update-modal");
+const appUpdateVersion = document.getElementById("app-update-version");
+const appUpdateNotes = document.getElementById("app-update-notes");
+const appUpdateOpenButton = document.getElementById("app-update-open");
+const appUpdateLaterButton = document.getElementById("app-update-later");
+
+if (hotkeysShortcutList) {
+  const modifier = navigator.userAgent.includes("Macintosh") ? "⌘ + ⌥" : "Ctrl + Alt";
+  const placements = [
+    ["7", "Top left"],
+    ["8", "Top centre"],
+    ["9", "Top right"],
+    ["4", "Middle left"],
+    ["5", "Centre"],
+    ["6", "Middle right"],
+    ["1", "Bottom left"],
+    ["2", "Bottom centre"],
+    ["3", "Bottom right"],
+  ];
+  for (const [digit, label] of placements) {
+    const row = document.createElement("div");
+    row.className = "hotkeys-popover-row";
+    const name = document.createElement("span");
+    name.textContent = label;
+    const shortcut = document.createElement("kbd");
+    shortcut.textContent = `${modifier} + ${digit}`;
+    row.append(name, shortcut);
+    hotkeysShortcutList.appendChild(row);
+  }
+}
+
+hotkeysButton?.addEventListener("click", () => {
+  hotkeysControl?.classList.toggle("open");
+});
+document.addEventListener("click", (event) => {
+  if (!hotkeysControl?.contains(event.target as Node)) {
+    hotkeysControl?.classList.remove("open");
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") hotkeysControl?.classList.remove("open");
+});
+
+appUpdateLaterButton?.addEventListener("click", () => appUpdateModal?.classList.add("hidden"));
+appUpdateOpenButton?.addEventListener("click", async () => {
+  try {
+    await openUrl(RELEASES_PAGE_URL);
+    appUpdateModal?.classList.add("hidden");
+  } catch (error) {
+    recordDiagnostic("ERROR", `Could not open the latest release page: ${error}`);
+    if (appUpdateNotes) appUpdateNotes.textContent = `Could not open the release page: ${error}`;
+  }
+});
 
 // Transcript Elements
 const transcriptBox = document.getElementById("transcript");
@@ -104,6 +166,7 @@ const STORAGE_KEY_API_KEY = "gemini_api_key";
 const STORAGE_KEY_MODEL = "gemini_model";
 const STORAGE_KEY_WHISPER_MODEL = "whisper_model";
 const WINDOWS_TINY_MIGRATION_KEY = "windows_tiny_model_migration_v1";
+const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
 
 let geminiApiKey: string = localStorage.getItem(STORAGE_KEY_API_KEY) || "";
 let selectedModel: string = localStorage.getItem(STORAGE_KEY_MODEL) || "";
@@ -256,11 +319,69 @@ function saveWhisperPreferences(model: string, language: string) {
   localStorage.setItem(STORAGE_KEY_WHISPER_MODEL, model);
   localStorage.setItem("whisper_language", language);
 
-  if (whisperModelSelect) whisperModelSelect.value = model || "tiny";
-  if (whisperSetupModelSelect) whisperSetupModelSelect.value = model || "tiny";
+  for (const select of [whisperModelSelect, whisperSetupModelSelect]) {
+    if (!select) continue;
+    select.querySelectorAll("option[data-custom-model]").forEach((option) => option.remove());
+    if (model.startsWith("custom:")) {
+      const option = document.createElement("option");
+      option.value = model;
+      option.dataset.customModel = "true";
+      option.textContent = `Custom model — ${model.slice("custom:".length).split(/[\\/]/).pop() || "local file"}`;
+      const customChoice = select.querySelector('option[value="custom"]');
+      select.insertBefore(option, customChoice);
+    }
+    select.value = model || "tiny";
+  }
   if (whisperLanguageSelect) whisperLanguageSelect.value = language;
   if (whisperSetupLanguageSelect) whisperSetupLanguageSelect.value = language;
 
+}
+
+async function handleWhisperModelSelection(
+  select: HTMLSelectElement,
+  language: string,
+  isSetup: boolean,
+): Promise<boolean> {
+  let model = select.value;
+  if (model === "custom") {
+    try {
+      const selectedPath = await openFileDialog({
+        title: "Choose a whisper.cpp GGML model",
+        multiple: false,
+        directory: false,
+        filters: [{ name: "Whisper GGML model", extensions: ["bin"] }],
+      });
+      if (typeof selectedPath !== "string") {
+        saveWhisperPreferences(selectedWhisperModel, selectedWhisperLanguage);
+        if (isSetup && !selectedWhisperModel) {
+          if (whisperSetupStatus) {
+            whisperSetupStatus.className = "modal-status-msg error";
+            whisperSetupStatus.textContent = "Choose a built-in model or select a local model file to continue.";
+            whisperSetupStatus.classList.remove("hidden");
+          }
+          return false;
+        }
+        return true;
+      }
+      model = `custom:${selectedPath}`;
+    } catch (error) {
+      saveWhisperPreferences(selectedWhisperModel, selectedWhisperLanguage);
+      const message = `Could not open the model file picker: ${error}`;
+      if (isSetup && whisperSetupStatus) {
+        whisperSetupStatus.className = "modal-status-msg error";
+        whisperSetupStatus.textContent = message;
+        whisperSetupStatus.classList.remove("hidden");
+      } else if (statusDetail) {
+        statusDetail.textContent = message;
+      }
+      recordDiagnostic("ERROR", message);
+      return false;
+    }
+  }
+
+  saveWhisperPreferences(model, language);
+  if (!isSetup) applyWhisperPreferencesLive();
+  return true;
 }
 
 function applyWhisperPreferencesLive() {
@@ -281,7 +402,11 @@ function applyWhisperPreferencesLive() {
   });
 }
 
-if (selectedWhisperModel && !["tiny", "base", "small"].includes(selectedWhisperModel)) {
+if (
+  selectedWhisperModel &&
+  !["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"].includes(selectedWhisperModel) &&
+  !selectedWhisperModel.startsWith("custom:")
+) {
   selectedWhisperModel = "tiny";
 }
 if (!["auto", "en", "hi"].includes(selectedWhisperLanguage)) {
@@ -296,8 +421,11 @@ if (whisperSetupModelSelect) whisperSetupModelSelect.value = selectedWhisperMode
 if (whisperSetupLanguageSelect) whisperSetupLanguageSelect.value = selectedWhisperLanguage;
 
 whisperModelSelect?.addEventListener("change", () => {
-  saveWhisperPreferences(whisperModelSelect.value, whisperLanguageSelect?.value || "auto");
-  applyWhisperPreferencesLive();
+  void handleWhisperModelSelection(
+    whisperModelSelect,
+    whisperLanguageSelect?.value || "auto",
+    false,
+  );
 });
 whisperLanguageSelect?.addEventListener("change", () => {
   saveWhisperPreferences(whisperModelSelect?.value || "tiny", whisperLanguageSelect.value);
@@ -640,7 +768,11 @@ async function detectAndPopulateModels(key: string, forcePrompt = false): Promis
       validModels.forEach((m, index) => {
         const opt = document.createElement("option");
         opt.value = m.id;
-        opt.textContent = index === 0 ? `${m.label} — Best available` : m.label;
+        if (m.id === DEFAULT_GEMINI_MODEL) {
+          opt.textContent = `${m.label} — Default`;
+        } else {
+          opt.textContent = index === 0 ? `${m.label} — Best available` : m.label;
+        }
         modelSelect.appendChild(opt);
       });
 
@@ -648,13 +780,11 @@ async function detectAndPopulateModels(key: string, forcePrompt = false): Promis
 
       // Select previous selection if present in the detected list and not forcing re-prompt
       const existingMatch = validModels.find((m) => m.id === selectedModel);
-      if (existingMatch && !forcePrompt) {
-        modelSelect.value = selectedModel;
-        defaultOption.selected = false;
-      } else {
-        modelSelect.value = validModels[0].id;
-        defaultOption.selected = false;
-      }
+      const defaultModel = validModels.find((m) => m.id === DEFAULT_GEMINI_MODEL) || validModels[0];
+      const chosenModel = existingMatch && !forcePrompt ? existingMatch : defaultModel;
+      modelSelect.value = chosenModel.id;
+      selectedModel = chosenModel.id;
+      defaultOption.selected = false;
     }
 
     if (modelDetectHint) {
@@ -760,10 +890,15 @@ whisperSetupStartButton?.addEventListener("click", async () => {
     whisperSetupStatus.textContent = "";
   }
 
-  saveWhisperPreferences(
-    whisperSetupModelSelect.value,
+  const modelSelectionReady = await handleWhisperModelSelection(
+    whisperSetupModelSelect,
     whisperSetupLanguageSelect?.value || "auto",
+    true,
   );
+  if (!modelSelectionReady) {
+    whisperSetupStartButton.disabled = false;
+    return;
+  }
   whisperSetupModal?.classList.add("hidden");
 
   try {
@@ -779,9 +914,70 @@ whisperSetupStartButton?.addEventListener("click", async () => {
   }
 });
 
+function compareReleaseVersions(first: string, second: string): number | null {
+  const firstParts = first.replace(/^v/i, "").split(".").map(Number);
+  const secondParts = second.replace(/^v/i, "").split(".").map(Number);
+  if (
+    firstParts.length !== 3 ||
+    secondParts.length !== 3 ||
+    [...firstParts, ...secondParts].some((part) => !Number.isInteger(part) || part < 0)
+  ) {
+    return null;
+  }
+  for (let index = 0; index < 3; index++) {
+    if (firstParts[index] !== secondParts[index]) {
+      return firstParts[index] > secondParts[index] ? 1 : -1;
+    }
+  }
+  return 0;
+}
+
+async function checkForApplicationUpdate() {
+  const lastCheckedAt = Number(localStorage.getItem(UPDATE_CHECKED_AT_KEY) || "0");
+  if (Number.isFinite(lastCheckedAt) && Date.now() - lastCheckedAt < 24 * 60 * 60 * 1000) return;
+
+  try {
+    const response = await fetch(RELEASES_API_URL, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!response.ok) throw new Error(`GitHub returned HTTP ${response.status}`);
+    const release: {
+      tag_name?: string;
+      body?: string | null;
+      draft?: boolean;
+      prerelease?: boolean;
+    } = await response.json();
+    localStorage.setItem(UPDATE_CHECKED_AT_KEY, String(Date.now()));
+
+    const latestVersion = release.tag_name?.replace(/^v/i, "");
+    if (!latestVersion || release.draft || release.prerelease) return;
+    const comparison = compareReleaseVersions(latestVersion, APP_VERSION);
+    if (comparison === null) {
+      recordDiagnostic("WARN", `Skipped update check for unsupported release version: ${release.tag_name}`);
+      return;
+    }
+    if (
+      comparison <= 0
+    ) {
+      return;
+    }
+
+    if (appUpdateVersion) appUpdateVersion.textContent = `Version ${latestVersion} is available`;
+    if (appUpdateNotes) {
+      appUpdateNotes.textContent = release.body?.trim() || "A newer version of InterviewBuddy is ready to download.";
+    }
+    appUpdateModal?.classList.remove("hidden");
+    recordDiagnostic("INFO", `A newer app release is available; current=${APP_VERSION}; latest=${latestVersion}.`);
+  } catch (error) {
+    localStorage.setItem(UPDATE_CHECKED_AT_KEY, String(Date.now() - 23 * 60 * 60 * 1000));
+    recordDiagnostic("WARN", `Could not check for app updates: ${error}`);
+  }
+}
+
 // Check on initial startup: if no key is saved, prompt user
 window.addEventListener("DOMContentLoaded", () => {
   updateAiBadgeState();
+  window.setTimeout(() => void checkForApplicationUpdate(), 3000);
   if (!selectedWhisperModel) {
     whisperSetupModal?.classList.remove("hidden");
     return;
@@ -812,7 +1008,8 @@ document.addEventListener("mousedown", (e) => {
     target.closest(".modal-card") ||
     target.closest(".transcript-box") ||
     target.closest(".ai-box") ||
-    target.closest(".window-controls")
+    target.closest(".window-controls") ||
+    target.closest(".hotkeys-control")
   ) {
     return;
   }
@@ -1573,6 +1770,61 @@ codingScreenshotBtn?.addEventListener("click", async () => {
 // Remove single screenshot logic replaced by dynamic array rendering above
 // Removed codingScreenshotRemove click listener as it is built into the imgContainer
 
+async function streamCodingAnswer(
+  model: string,
+  payload: { contents: { parts: any[] }[]; generationConfig: { maxOutputTokens: number; temperature: number } },
+  onChunk: (answer: string) => void,
+): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/${model}:streamGenerateContent?alt=sse&key=${geminiApiKey}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok || !response.body) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody?.error?.message || `Gemini request failed with HTTP ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let answer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data: ") || trimmed.slice(6).trim() === "[DONE]") continue;
+      const data = JSON.parse(trimmed.slice(6).trim());
+      const parts = data.candidates?.[0]?.content?.parts;
+      if (Array.isArray(parts)) {
+        answer += parts.map((part: { text?: string }) => part.text || "").join("");
+        onChunk(answer);
+        showCodingStatus(`Generating answer... ${answer.length} characters received.`, "success");
+      }
+    }
+  }
+
+  const finalLine = buffer.trim();
+  if (finalLine.startsWith("data: ") && finalLine.slice(6).trim() !== "[DONE]") {
+    const data = JSON.parse(finalLine.slice(6).trim());
+    const parts = data.candidates?.[0]?.content?.parts;
+    if (Array.isArray(parts)) {
+      answer += parts.map((part: { text?: string }) => part.text || "").join("");
+      onChunk(answer);
+    }
+  }
+  if (!answer.trim()) throw new Error("Gemini returned an empty coding answer.");
+  return answer;
+}
+
 solveBtn?.addEventListener("click", async () => {
   const problem = codingInput?.value.trim() || "Solve the problem shown in the image.";
   const lang = codingLangSelect?.value || "Python";
@@ -1591,10 +1843,32 @@ solveBtn?.addEventListener("click", async () => {
   if (codingResultContainer) codingResultContainer.classList.add("hidden");
   showCodingStatus("", "success"); // clear
 
+  let pendingCodingAnswerBody: HTMLDivElement | null = null;
   try {
     const prompt = getCodingPrompt(lang, problem);
-    const cleanModel = selectedModel.startsWith("models/") ? selectedModel : `models/${selectedModel || 'gemini-2.0-flash'}`;
-    const url = `https://generativelanguage.googleapis.com/v1beta/${cleanModel}:generateContent?key=${geminiApiKey}`;
+    const chosenModel = selectedModel || DEFAULT_GEMINI_MODEL;
+    const cleanModel = chosenModel.startsWith("models/") ? chosenModel : `models/${chosenModel}`;
+    let answerCard: HTMLDivElement | null = null;
+    if (aiAnswersBox) {
+      if (aiPlaceholder?.parentElement) aiPlaceholder.remove();
+      const isScrolledToBottom =
+        aiAnswersBox.scrollHeight - aiAnswersBox.scrollTop <= aiAnswersBox.clientHeight + 60;
+      answerCard = document.createElement("div");
+      answerCard.className = "ai-answer-card";
+      const cardHeader = document.createElement("div");
+      cardHeader.className = "ai-answer-header";
+      cardHeader.innerHTML = `
+        <span class="ai-sparkle">✦</span>
+        <span>DSA Solution (${lang})</span>
+        <span class="ai-answer-time">${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+      `;
+      pendingCodingAnswerBody = document.createElement("div");
+      pendingCodingAnswerBody.className = "ai-answer-body markdown-body";
+      pendingCodingAnswerBody.textContent = "Generating coding solution...";
+      answerCard.append(cardHeader, pendingCodingAnswerBody);
+      aiAnswersBox.appendChild(answerCard);
+      if (isScrolledToBottom) aiAnswersBox.scrollTop = aiAnswersBox.scrollHeight;
+    }
 
     const parts: any[] = [{ text: prompt }];
     for (const b64 of currentScreenshots) {
@@ -1606,27 +1880,21 @@ solveBtn?.addEventListener("click", async () => {
       });
     }
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: {
-          maxOutputTokens: 4096,
-          temperature: 0.1,
-        },
-      }),
+    const text = await streamCodingAnswer(cleanModel, {
+      contents: [{ parts }],
+      generationConfig: {
+        maxOutputTokens: 4096,
+        temperature: 0.1,
+      },
+    }, (answer) => {
+      if (!pendingCodingAnswerBody) return;
+      pendingCodingAnswerBody.innerHTML = formatAiAnswerHtml(answer);
+      if (aiAnswersBox) aiAnswersBox.scrollTop = aiAnswersBox.scrollHeight;
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     
     if (text.includes("NOT_A_CODING_PROBLEM")) {
       showCodingStatus("The input does not appear to be a coding problem.", "error");
+      answerCard?.remove();
       return;
     }
 
@@ -1634,28 +1902,8 @@ solveBtn?.addEventListener("click", async () => {
     const codeBlocks = extractCodeBlocks(text);
     const optimizedCode = codeBlocks[1] || codeBlocks[0] || "";
 
-    if (aiAnswersBox) {
-      if (aiPlaceholder && aiPlaceholder.parentElement) {
-        aiPlaceholder.remove();
-      }
-      
-      const isScrolledToBottom = aiAnswersBox.scrollHeight - aiAnswersBox.scrollTop <= aiAnswersBox.clientHeight + 60;
-      
-      const card = document.createElement("div");
-      card.className = "ai-answer-card";
-      
-      const cardHeader = document.createElement("div");
-      cardHeader.className = "ai-answer-header";
-      cardHeader.innerHTML = `
-        <span class="ai-sparkle">✦</span>
-        <span>DSA Solution (${lang})</span>
-        <span class="ai-answer-time">${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
-      `;
-      
-      const cardAnswer = document.createElement("div");
-      cardAnswer.className = "ai-answer-body markdown-body";
-      cardAnswer.innerHTML = formatAiAnswerHtml(text);
-      
+    if (pendingCodingAnswerBody) {
+      pendingCodingAnswerBody.innerHTML = formatAiAnswerHtml(text);
       if (optimizedCode) {
         const copyBtn = document.createElement("button");
         copyBtn.className = "btn-text-action";
@@ -1666,15 +1914,7 @@ solveBtn?.addEventListener("click", async () => {
           copyBtn.textContent = "Copied!";
           setTimeout(() => copyBtn.textContent = "Copy Optimized Code", 1500);
         };
-        cardAnswer.appendChild(copyBtn);
-      }
-      
-      card.appendChild(cardHeader);
-      card.appendChild(cardAnswer);
-      aiAnswersBox.appendChild(card);
-      
-      if (isScrolledToBottom) {
-        aiAnswersBox.scrollTop = aiAnswersBox.scrollHeight;
+        pendingCodingAnswerBody.appendChild(copyBtn);
       }
     }
     
@@ -1682,6 +1922,9 @@ solveBtn?.addEventListener("click", async () => {
     closeCodingModal();
   } catch (err: any) {
     showCodingStatus(`Error: ${err.message || err}`, "error");
+    if (pendingCodingAnswerBody) {
+      pendingCodingAnswerBody.textContent = `Could not generate the coding answer: ${err.message || err}`;
+    }
   } finally {
     if (solveBtnText) solveBtnText.textContent = "Solve";
     if (solveBtn) solveBtn.disabled = false;

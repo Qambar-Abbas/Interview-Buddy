@@ -15,9 +15,19 @@ const MODEL_BASE_URL: &str =
     "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin";
 const MODEL_SMALL_URL: &str =
     "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin";
+const MODEL_MEDIUM_URL: &str =
+    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin";
+const MODEL_LARGE_V3_TURBO_URL: &str =
+    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin";
+const MODEL_LARGE_V3_URL: &str =
+    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin";
 const MODEL_TINY_MIN_BYTES: u64 = 70_000_000;
 const MODEL_BASE_MIN_BYTES: u64 = 130_000_000;
 const MODEL_SMALL_MIN_BYTES: u64 = 430_000_000;
+const MODEL_MEDIUM_MIN_BYTES: u64 = 1_400_000_000;
+const MODEL_LARGE_V3_TURBO_MIN_BYTES: u64 = 1_500_000_000;
+const MODEL_LARGE_V3_MIN_BYTES: u64 = 2_900_000_000;
+const CUSTOM_MODEL_MIN_BYTES: u64 = 10_000_000;
 const GGML_FILE_MAGIC: u32 = 0x67676d6c;
 const MAX_WHISPER_THREADS: usize = 4;
 
@@ -96,6 +106,9 @@ fn migrate_cached_models(data_dir: &Path, model_dir: &Path) -> Result<(), String
         ("ggml-tiny.bin", MODEL_TINY_MIN_BYTES),
         ("ggml-base.bin", MODEL_BASE_MIN_BYTES),
         ("ggml-small.bin", MODEL_SMALL_MIN_BYTES),
+        ("ggml-medium.bin", MODEL_MEDIUM_MIN_BYTES),
+        ("ggml-large-v3-turbo.bin", MODEL_LARGE_V3_TURBO_MIN_BYTES),
+        ("ggml-large-v3.bin", MODEL_LARGE_V3_MIN_BYTES),
     ];
 
     for legacy_dir in &legacy_dirs {
@@ -367,16 +380,62 @@ fn run_transcription(
 }
 
 /// Ensure Whisper model is available locally, checking bundled resources or downloading if not present.
-pub fn ensure_model_available<F>(model_choice: Option<&str>, progress_callback: F) -> Result<PathBuf, String>
+pub fn ensure_model_available<F>(
+    model_choice: Option<&str>,
+    progress_callback: F,
+) -> Result<PathBuf, String>
 where
     F: Fn(ModelDownloadStatus),
 {
-    let (model_file_name, download_url, approx_size, minimum_size) = match model_choice.unwrap_or("tiny") {
-        "tiny" | "tiny.en" => ("ggml-tiny.bin", MODEL_TINY_URL, "~75 MB", MODEL_TINY_MIN_BYTES),
-        "base" | "base.en" => ("ggml-base.bin", MODEL_BASE_URL, "~150 MB", MODEL_BASE_MIN_BYTES),
-        "small" => ("ggml-small.bin", MODEL_SMALL_URL, "~500 MB", MODEL_SMALL_MIN_BYTES),
-        model => return Err(format!("Unsupported Whisper model: {}", model)),
-    };
+    if let Some(custom_path) = model_choice.and_then(|choice| choice.strip_prefix("custom:")) {
+        let path = PathBuf::from(custom_path);
+        let is_bin_file = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("bin"));
+        if !is_bin_file || !is_valid_model(&path, CUSTOM_MODEL_MIN_BYTES) {
+            return Err(
+                "The selected custom file is not a valid Whisper GGML model (expected a .bin file of at least 10 MB)."
+                    .to_string(),
+            );
+        }
+        progress_callback(ModelDownloadStatus::new(
+            "cached",
+            "Using the selected local Whisper GGML model.",
+        ));
+        return fs::canonicalize(path)
+            .map_err(|error| format!("Failed to resolve custom Whisper model path: {error}"));
+    }
+
+    let (model_file_name, download_url, approx_size, minimum_size) =
+        match model_choice.unwrap_or("tiny") {
+            "tiny" | "tiny.en" => {
+                ("ggml-tiny.bin", MODEL_TINY_URL, "~75 MB", MODEL_TINY_MIN_BYTES)
+            }
+            "base" | "base.en" => {
+                ("ggml-base.bin", MODEL_BASE_URL, "~150 MB", MODEL_BASE_MIN_BYTES)
+            }
+            "small" => ("ggml-small.bin", MODEL_SMALL_URL, "~500 MB", MODEL_SMALL_MIN_BYTES),
+            "medium" => (
+                "ggml-medium.bin",
+                MODEL_MEDIUM_URL,
+                "~1.5 GB",
+                MODEL_MEDIUM_MIN_BYTES,
+            ),
+            "large-v3-turbo" => (
+                "ggml-large-v3-turbo.bin",
+                MODEL_LARGE_V3_TURBO_URL,
+                "~1.6 GB",
+                MODEL_LARGE_V3_TURBO_MIN_BYTES,
+            ),
+            "large-v3" => (
+                "ggml-large-v3.bin",
+                MODEL_LARGE_V3_URL,
+                "~3.1 GB",
+                MODEL_LARGE_V3_MIN_BYTES,
+            ),
+            model => return Err(format!("Unsupported Whisper model: {}", model)),
+        };
 
     // 1. Check bundled application resources first (for pre-packaged distributions)
     if let Ok(exe_path) = std::env::current_exe() {
@@ -545,8 +604,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::{
-        is_valid_model, sanitize_samples, whisper_thread_count, GGML_FILE_MAGIC, MODEL_BASE_URL,
-        MODEL_SMALL_URL, MODEL_TINY_URL,
+        is_valid_model, sanitize_samples, whisper_thread_count, CUSTOM_MODEL_MIN_BYTES,
+        GGML_FILE_MAGIC, MODEL_BASE_URL, MODEL_LARGE_V3_TURBO_URL, MODEL_LARGE_V3_URL,
+        MODEL_MEDIUM_URL, MODEL_SMALL_URL, MODEL_TINY_URL,
     };
     use std::fs;
 
@@ -577,6 +637,29 @@ mod tests {
         assert!(MODEL_TINY_URL.ends_with("ggml-tiny.bin"));
         assert!(MODEL_BASE_URL.ends_with("ggml-base.bin"));
         assert!(MODEL_SMALL_URL.ends_with("ggml-small.bin"));
+        assert!(MODEL_MEDIUM_URL.ends_with("ggml-medium.bin"));
+        assert!(MODEL_LARGE_V3_TURBO_URL.ends_with("ggml-large-v3-turbo.bin"));
+        assert!(MODEL_LARGE_V3_URL.ends_with("ggml-large-v3.bin"));
+    }
+
+    #[test]
+    fn accepts_a_valid_local_custom_model() {
+        let path = std::env::temp_dir().join(format!(
+            "interview-buddy-custom-model-{}.bin",
+            std::process::id()
+        ));
+        let mut file = fs::File::create(&path).unwrap();
+        use std::io::Write;
+        file.write_all(&GGML_FILE_MAGIC.to_le_bytes()).unwrap();
+        file.set_len(CUSTOM_MODEL_MIN_BYTES).unwrap();
+        drop(file);
+
+        let model_choice = format!("custom:{}", path.display());
+        assert_eq!(
+            super::ensure_model_available(Some(&model_choice), |_| {}).unwrap(),
+            fs::canonicalize(&path).unwrap()
+        );
+        fs::remove_file(path).unwrap();
     }
 
     #[test]

@@ -6,9 +6,9 @@ InterviewBuddy is a desktop app for live system-audio transcription and optional
 
 | Platform | Download |
 | --- | --- |
-| Windows 10/11 (x64) | [Download installer](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.1.9_x64-setup.exe) |
-| macOS (Intel) | [Download DMG](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.1.9_x64.dmg) |
-| macOS (Apple Silicon) | [Download DMG](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.1.9_aarch64.dmg) |
+| Windows 10/11 (x64) | [Download installer](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.2.0_x64-setup.exe) |
+| macOS (Intel) | [Download DMG](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.2.0_x64.dmg) |
+| macOS (Apple Silicon) | [Download DMG](https://github.com/Umar-fr/Interview-Buddy/releases/latest/download/InterviewBuddy_0.2.0_aarch64.dmg) |
 
 These links point to the latest release. For earlier versions, visit [All Releases](https://github.com/Umar-fr/Interview-Buddy/releases).
 
@@ -16,7 +16,7 @@ These links point to the latest release. For earlier versions, visit [All Releas
 
 - **Windows:** Run the downloaded installer on a 64-bit PC with an AVX2-capable processor and a Vulkan-capable graphics driver for GPU acceleration. It installs per-user and downloads WebView2 if it is missing. CPU transcription remains available when no Vulkan GPU is detected. Windows SmartScreen may show a warning because the installer is not signed.
 - **macOS:** Open the DMG and drag InterviewBuddy into Applications. Whisper uses Metal GPU acceleration when available and falls back to CPU if initialization fails. The app is unsigned and may require Control-click → **Open** the first time. macOS 13 or later is required.
-- **First launch:** Choose a multilingual Whisper model (Tiny ~75 MB, Base ~150 MB, or Small ~500 MB) and a transcription language. Tiny is recommended for responsive live transcription on Windows; Windows users with the previous default Base model are moved to Tiny once. Model and language changes can be applied while audio capture continues; existing transcript history is kept. The **Downloads** button shows download progress; models are verified and cached under `%LOCALAPPDATA%\InterviewBuddy\models`. An internet connection is required for the initial download.
+- **First launch:** Choose a multilingual Whisper model (Tiny ~75 MB, Base ~150 MB, Small ~500 MB, Medium ~1.5 GB, Large v3 Turbo ~1.6 GB, or Large v3 ~3.1 GB) and a transcription language. Larger models need substantial disk space and are best used with GPU acceleration. You can also choose a local whisper.cpp-compatible GGML `.bin` model file. Tiny is recommended for responsive live transcription on Windows; Windows users with the previous default Base model are moved to Tiny once. Model and language changes can be applied while audio capture continues; existing transcript history is kept. The **Downloads** button shows download progress; models are verified and cached under `%LOCALAPPDATA%\InterviewBuddy\models`. An internet connection is required for the initial download of built-in models.
 - **Transcription languages:** Auto-detect is recommended for speech that mixes Hindi and English. Results vary with audio quality and code-switching.
 - **AI answers:** Add your own Gemini API key in the app settings. Speech transcription runs locally; Gemini features send the text you choose to process to Google.
 
@@ -26,12 +26,18 @@ These links point to the latest release. For earlier versions, visit [All Releas
 2. Play audio through your computer’s default output device. Transcriptions appear in the Live Transcript panel with capture times and processing delay.
 3. Use **+ Add** on transcript snippets to assemble a question in the Gemini field without submitting; click **Ask AI** to ask about one snippet immediately.
 4. To enable Gemini answers, open **Gemini AI** and click the Google AI Studio link to open its key page in your browser. Detect, test, and save a model; compatible Gemini models are ordered from most capable to fastest. Auto-Answer needs a connected Gemini key/model and responds to detected questions.
-5. Coding questions include brute-force and optimized solutions, reasoning, and time/space complexity. Optionally add resume/background details in settings to personalize responses.
+5. Coding questions include brute-force and optimized solutions, reasoning, and time/space complexity. Coding answers stream as they are generated. Gemini 3.1 Flash Lite is selected by default when your API key supports it. Optionally add resume/background details in settings to personalize responses.
+6. On startup, the app checks GitHub Releases daily and offers a link when a newer version is available. You can install over the existing Windows installation without uninstalling first.
 
 | Shortcut | Action |
 | --- | --- |
 | `Ctrl + Shift + H` | Hide/show the app |
 | `Ctrl + Shift + C` | Open Coding Mode |
+| `Ctrl + Alt + 7/8/9` | Place window top-left/top-centre/top-right |
+| `Ctrl + Alt + 4/5/6` | Place window middle-left/centre/middle-right |
+| `Ctrl + Alt + 1/2/3` | Place window bottom-left/bottom-centre/bottom-right |
+
+On macOS, use `Command + Option` instead of `Ctrl + Alt`. Hover over **Keys** in the title bar to see the shortcuts.
 
 ## Troubleshooting
 
@@ -41,6 +47,7 @@ These links point to the latest release. For earlier versions, visit [All Releas
 - **Slow or delayed transcription:** Select Tiny for the fastest transcription. Windows uses a detected Vulkan GPU when available (discrete adapters are prioritized by the backend); macOS uses Metal. CPU inference is used when no GPU is detected or GPU initialization/inference fails. For English-only audio, choose English instead of Auto to avoid repeated language detection; keep Auto for Hinglish. Whisper processes audio in batches, so captions cannot be truly zero-latency. If inference takes longer than the audio segment, the app replaces older queued speech with newer speech to prevent an ever-growing backlog; check Logs for inference time, total delay, backend, and real-time factor.
 - **Audio or transcription stops unexpectedly:** Open **Logs**, select and copy the diagnostics, then share them with your bug report. The log does not include recorded audio or transcript text; review it before sharing.
 - **Gemini answers are unavailable:** Confirm that your Gemini API key and selected model are valid. Transcription does not require a Gemini key.
+- **Update checker:** The app checks at most once per day. Selecting **View update** opens the official latest-release page; the updater does not download or install anything automatically.
 
 ## Contributing
 
