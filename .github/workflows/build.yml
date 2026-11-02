@@ -70,6 +70,9 @@ jobs:
           "VULKAN_SDK=$sdk" >> $env:GITHUB_ENV
           "$sdk\Bin" >> $env:GITHUB_PATH
 
+      - name: Prepare Vulkan loader resource
+        run: node scripts/prepare-vulkan-loader.js
+
       - name: Install frontend dependencies
         run: npm ci
 
