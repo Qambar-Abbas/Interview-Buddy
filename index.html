@@ -11,27 +11,39 @@
 <body>
   <div id="app">
     <!-- Titlebar -->
-    <div class="titlebar">
-      <div class="title-section">
-        <div class="title">InterviewBuddy</div>
-        <div id="audio-badge" class="audio-badge inactive">
-          <span class="status-dot"></span>
-          <span id="audio-status-label">Initializing...</span>
+    <div class="titlebar" data-tauri-drag-region>
+      <div class="title-section" data-tauri-drag-region>
+        <div class="title" data-tauri-drag-region>InterviewBuddy</div>
+        <div id="audio-badge" class="audio-badge inactive" data-tauri-drag-region>
+          <span class="status-dot" data-tauri-drag-region></span>
+          <span id="audio-status-label" data-tauri-drag-region>Initializing...</span>
         </div>
-        <button id="ai-settings-btn" class="ai-badge-btn" title="Configure Gemini API Key">
+        <button id="ai-settings-btn" class="ai-badge-btn">
           <span class="ai-icon">✦</span>
           <span id="ai-badge-label">Gemini AI</span>
         </button>
+        <button id="downloads-btn" class="tool-btn downloads-btn">Downloads</button>
+        <button id="diagnostics-btn" class="tool-btn">Logs</button>
+        <div id="hotkeys-control" class="hotkeys-control">
+          <button id="hotkeys-button" class="hotkeys-button" type="button" aria-label="Show keyboard shortcuts" aria-describedby="hotkeys-popover">Keys</button>
+          <div id="hotkeys-popover" class="hotkeys-popover" role="tooltip">
+            <div class="hotkeys-popover-title">Window shortcuts</div>
+            <div id="hotkeys-shortcut-list"></div>
+            <div class="hotkeys-popover-row"><span>Open coding mode</span><kbd>Ctrl/⌘ + Shift + C</kbd></div>
+            <div class="hotkeys-popover-row"><span>Hide / show app</span><kbd>Ctrl/⌘ + Shift + H</kbd></div>
+            <div class="hotkeys-popover-row"><span>Drag window</span><kbd>Hold and drag background</kbd></div>
+          </div>
+        </div>
       </div>
 
       <div class="window-controls">
-        <button id="minimize" title="Minimize">−</button>
-        <button id="close" title="Close">×</button>
+        <button id="minimize">−</button>
+        <button id="close">×</button>
       </div>
     </div>
 
     <!-- Main Content Area -->
-    <main>
+    <main data-tauri-drag-region>
       <!-- Audio Monitor -->
       <div class="audio-monitor">
         <div class="audio-meter-container">
@@ -50,11 +62,11 @@
           <div class="transcript-toolbar">
             <span class="toolbar-title">Live Transcript</span>
             <div class="toolbar-actions">
-              <button id="copy-btn" class="tool-btn" title="Copy entire transcript">
+              <button id="copy-btn" class="tool-btn">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 <span>Copy</span>
               </button>
-              <button id="clear-btn" class="tool-btn" title="Clear transcript">
+              <button id="clear-btn" class="tool-btn">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 <span>Clear</span>
               </button>
@@ -76,12 +88,15 @@
               <span class="toolbar-title">Gemini Answers</span>
             </div>
             <div class="ai-toolbar-right">
-              <label class="auto-answer-toggle" title="Automatically answer questions detected in speech">
-                <input type="checkbox" id="auto-answer-checkbox" checked />
+              <button id="coding-mode-btn" class="tool-btn">
+                <span style="font-family: monospace; font-weight: bold;">&lt;/&gt;</span>
+              </button>
+              <label class="auto-answer-toggle">
+                <input type="checkbox" id="auto-answer-checkbox" />
                 <span class="toggle-slider"></span>
                 <span class="toggle-label">Auto-Answer</span>
               </label>
-              <button id="clear-ai-btn" class="tool-btn" title="Clear AI answers">
+              <button id="clear-ai-btn" class="tool-btn">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
               </button>
             </div>
@@ -92,6 +107,22 @@
               <span class="ai-empty-icon">✦</span>
               <p>Gemini AI is ready to detect and answer questions, quizzes, or tests from the live audio stream.</p>
             </div>
+          </div>
+          <div class="manual-ai-container">
+            <input 
+              type="text" 
+              id="manual-ai-query" 
+              class="manual-ai-input" 
+              placeholder="Ask Gemini manually... (Press Enter)" 
+              autocomplete="off" 
+              autocorrect="off" 
+              autocapitalize="off" 
+              spellcheck="false" 
+              data-form-type="other" 
+              data-lpignore="true" 
+              aria-autocomplete="none" 
+            />
+            <button id="manual-ai-btn" class="manual-ai-btn">Ask</button>
           </div>
         </div>
       </div>
@@ -109,7 +140,7 @@
             <p class="modal-subtitle">Power real-time question answering with Google Gemini</p>
           </div>
         </div>
-        <button id="modal-close-btn" class="modal-close-btn" title="Close">×</button>
+        <button id="modal-close-btn" class="modal-close-btn">×</button>
       </div>
 
       <div class="modal-body">
@@ -117,7 +148,7 @@
           <label for="api-key-input">Gemini API Key</label>
           <div class="input-password-wrapper">
             <input type="password" id="api-key-input" placeholder="AIzaSy..." autocomplete="off" spellcheck="false" />
-            <button id="toggle-key-visibility" type="button" class="btn-toggle-eye" title="Show/Hide Key">👁</button>
+            <button id="toggle-key-visibility" type="button" class="btn-toggle-eye">👁</button>
           </div>
           <span class="form-hint">
             Get your key from <a href="https://aistudio.google.com/app/apikey" target="_blank" id="open-ai-studio-link">Google AI Studio</a>.
@@ -127,7 +158,7 @@
         <div class="form-group">
           <div class="label-with-action">
             <label for="model-select">Model</label>
-            <button id="refresh-models-btn" type="button" class="btn-text-action" title="Fetch available models from Gemini API">⟳ Detect Models</button>
+            <button id="refresh-models-btn" type="button" class="btn-text-action">⟳ Detect Models</button>
           </div>
           <select id="model-select" disabled>
             <option value="" disabled selected>Enter your API key above to detect models...</option>
@@ -137,11 +168,49 @@
           </span>
         </div>
 
+        <div class="form-group" style="margin-top: 6px;">
+          <label for="whisper-model-select">Offline Speech-to-Text Model (Whisper)</label>
+          <select id="whisper-model-select" style="width: 100%; padding: 7px 10px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #fff; font-size: 12px; outline: none;">
+            <option value="tiny">Tiny multilingual (~75 MB) - Fastest (recommended for Windows)</option>
+            <option value="base">Base multilingual (~150 MB) - Balanced accuracy and speed</option>
+            <option value="small">Small multilingual (~500 MB) - Higher accuracy, slower</option>
+            <option value="medium">Medium multilingual (~1.5 GB) - Higher accuracy, slower</option>
+            <option value="large-v3-turbo">Large v3 Turbo (~1.6 GB) - High accuracy, GPU recommended</option>
+            <option value="large-v3">Large v3 (~3.1 GB) - Highest accuracy, GPU strongly recommended</option>
+            <option value="custom">Choose local GGML model file...</option>
+          </select>
+          <span class="form-hint">
+            Multilingual models support English, Hindi, and mixed Hinglish. Tiny is recommended for faster live captions; Medium and larger models require substantial storage and work best with a GPU. Choose a local whisper.cpp GGML .bin file to use a custom model. Model and language changes apply in the background without stopping audio capture.
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label for="whisper-language-select">Transcription language</label>
+          <select id="whisper-language-select" style="width: 100%; padding: 7px 10px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #fff; font-size: 12px; outline: none;">
+            <option value="auto">Auto-detect (recommended for Hinglish)</option>
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
+          </select>
+        </div>
+
         <div class="form-group-checkbox">
           <label class="remember-key-label" for="remember-key-checkbox">
             <input type="checkbox" id="remember-key-checkbox" />
             <span>Remember API key on this device for future sessions</span>
           </label>
+        </div>
+
+        <div class="form-group" style="margin-top: 8px;">
+          <label for="resume-input">Your Resume / Background (Optional)</label>
+          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <input type="file" id="resume-file" accept=".pdf,.txt,.md" style="font-size: 11px; flex: 1; color: #ccc;" />
+            <button id="resume-analyze-btn" class="btn-primary" style="padding: 4px 10px; font-size: 11px;">Analyze</button>
+          </div>
+          <textarea id="resume-input" rows="3" placeholder="Paste your resume here, or upload a PDF and click Analyze to let Gemini extract your persona." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" style="width: 100%; resize: vertical; padding: 8px 10px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; color: #fff; font-size: 11.5px;"></textarea>
+        </div>
+
+        <div class="stealth-tip-card" style="margin-top: 10px; padding: 8px 10px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 6px; font-size: 11px; line-height: 1.4; color: rgba(255, 255, 255, 0.85);">
+          <span style="font-weight: 600; color: #c084fc;">🛡️ Stealth Tip:</span> To ensure Windows never shows 3-word predictive pills system-wide: Windows Settings (Win+I) → Time &amp; Language → Typing → Turn OFF <em>"Show text suggestions when typing on the physical keyboard"</em>.
         </div>
 
         <div id="modal-status-msg" class="modal-status-msg hidden"></div>
@@ -151,6 +220,191 @@
         <button id="save-key-btn" class="btn-primary">
           <span id="save-key-btn-text">Save & Connect</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="whisper-setup-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon">♫</div>
+          <div>
+            <h2 class="modal-title">Set up speech recognition</h2>
+            <p class="modal-subtitle">Choose an offline model for your device</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="whisper-setup-model">Whisper model</label>
+          <select id="whisper-setup-model">
+            <option value="tiny" selected>Tiny multilingual (~75 MB) — fastest, recommended for Windows</option>
+            <option value="base">Base multilingual (~150 MB) — balanced accuracy and speed</option>
+            <option value="small">Small multilingual (~500 MB) — higher accuracy, slower</option>
+            <option value="medium">Medium multilingual (~1.5 GB) — higher accuracy, slower</option>
+            <option value="large-v3-turbo">Large v3 Turbo (~1.6 GB) — high accuracy, GPU recommended</option>
+            <option value="large-v3">Large v3 (~3.1 GB) — highest accuracy, GPU strongly recommended</option>
+            <option value="custom">Choose local GGML model file...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="whisper-setup-language">Transcription language</label>
+          <select id="whisper-setup-language">
+            <option value="auto" selected>Auto-detect (recommended for Hinglish)</option>
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
+          </select>
+        </div>
+        <p class="form-hint">Built-in models download on first use. Medium and larger models need substantial storage and work best with a GPU. You can also choose a local whisper.cpp GGML .bin file. Audio transcription runs locally; audio is not sent to Gemini unless you enable AI features.</p>
+        <div id="whisper-setup-status" class="modal-status-msg hidden"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="whisper-setup-start" class="btn-primary">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="model-download-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="model-download-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon">↓</div>
+          <div>
+            <h2 id="model-download-title" class="modal-title">Speech model download</h2>
+            <p class="modal-subtitle">Whisper models are verified, stored locally, and reused next launch</p>
+          </div>
+        </div>
+        <button id="model-download-close" class="modal-close-btn" aria-label="Close downloads">×</button>
+      </div>
+      <div class="modal-body">
+        <p id="model-download-message" class="download-status-message">No model download in progress.</p>
+        <div
+          id="model-download-progress"
+          class="download-progress-track"
+          role="progressbar"
+          aria-label="Whisper model download progress"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+        >
+          <div id="model-download-progress-bar" class="download-progress-bar"></div>
+        </div>
+        <div id="model-download-size" class="download-size">Progress will appear here when a model is needed.</div>
+        <p class="form-hint">During a model change, audio capture continues with the current model until the new one is ready. Transcription latency depends on your device; offline CPU recognition cannot provide true zero-latency captions.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="model-download-retry" class="btn-primary download-retry" hidden>Retry download</button>
+        <button id="model-download-done" class="btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="diagnostics-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="diagnostics-title">
+    <div class="modal-card diagnostics-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon">!</div>
+          <div>
+            <h2 id="diagnostics-title" class="modal-title">Application logs</h2>
+            <p class="modal-subtitle">Use these logs to help troubleshoot audio or transcription failures</p>
+          </div>
+        </div>
+        <button id="diagnostics-close" class="modal-close-btn" aria-label="Close application logs">×</button>
+      </div>
+      <div class="modal-body">
+        <p id="diagnostics-path" class="form-hint"></p>
+        <p class="form-hint">Logs include app errors and audio/model status, but not recorded audio or transcript text. Review before sharing.</p>
+        <textarea id="diagnostics-output" class="diagnostics-output" readonly spellcheck="false" aria-label="Application log contents"></textarea>
+        <p id="diagnostics-status" class="form-hint" aria-live="polite"></p>
+      </div>
+      <div class="modal-footer">
+        <button id="diagnostics-refresh" class="btn-primary">Refresh</button>
+        <button id="diagnostics-select" class="btn-primary">Select logs</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Coding Mode Modal -->
+  <div id="coding-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 650px; width: 90%;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon" style="font-family: monospace;">&lt;/&gt;</div>
+          <div>
+            <h2 class="modal-title">DSA Coding Mode</h2>
+            <p class="modal-subtitle">Generate code-only solutions for technical interviews</p>
+          </div>
+        </div>
+        <button id="coding-modal-close-btn" class="modal-close-btn">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <div class="label-with-action">
+            <label for="coding-input">Problem Description</label>
+            <div style="display: flex; gap: 8px;">
+              <button id="coding-screenshot-btn" class="btn-text-action" style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; display: flex; align-items: center; gap: 4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                Take Screenshot
+              </button>
+              <select id="coding-lang-select" style="padding: 4px; border-radius: 4px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);">
+                <option value="Python" selected>Python</option>
+                <option value="C++">C++</option>
+                <option value="Java">Java</option>
+                <option value="JavaScript">JavaScript</option>
+                <option value="TypeScript">TypeScript</option>
+                <option value="C">C</option>
+                <option value="Go">Go</option>
+                <option value="Rust">Rust</option>
+                <option value="Kotlin">Kotlin</option>
+                <option value="C#">C#</option>
+                <option value="SQL">SQL</option>
+              </select>
+            </div>
+          </div>
+          <div id="coding-screenshot-preview" style="display: flex; gap: 8px; margin-bottom: 8px; overflow-x: auto; padding-bottom: 4px;">
+             <!-- Images will be appended here -->
+          </div>
+          <textarea id="coding-input" rows="5" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-form-type="other" data-lpignore="true" style="width: 100%; resize: vertical; padding: 10px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;" placeholder="Paste problem description here, or select text from the transcript..."></textarea>
+        </div>
+        
+        <div id="coding-result-container" class="hidden" style="margin-top: 15px;">
+          <div class="label-with-action" style="margin-bottom: 5px;">
+            <label>Solution</label>
+            <button id="coding-copy-btn" class="btn-text-action" style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px;">Copy Code</button>
+          </div>
+          <pre style="margin: 0;"><code id="coding-output" style="display:block; padding: 12px; background: #1e1e1e; color: #d4d4d4; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; font-family: monospace; font-size: 13px;"></code></pre>
+        </div>
+        <div id="coding-status-msg" class="modal-status-msg hidden"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="solve-btn" class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669);">
+          <span id="solve-btn-text">Solve</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-update-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon">↑</div>
+          <div>
+            <h2 class="modal-title">InterviewBuddy update available</h2>
+            <p id="app-update-version" class="modal-subtitle"></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p id="app-update-notes" class="form-hint"></p>
+        <p class="form-hint">Open the official release page to download and install the update. You do not need to uninstall first.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="app-update-later" class="btn-text-action">Later</button>
+        <button id="app-update-open" class="btn-primary">View update</button>
       </div>
     </div>
   </div>
